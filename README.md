@@ -1,4 +1,4 @@
-# Dengue-Risk-MLOps
+# Dengue-Risk-MLOps1
 
 A Python 3.11 undergraduate Computer Science project that classifies **next-week
 dengue outbreak risk** for Sri Lankan reporting districts as **LOW, MEDIUM, HIGH**,

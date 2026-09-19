@@ -5,7 +5,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/api/.venv" />
     </content>
-    <orderEntry type="jdk" jdkName="D:\Devmi\Y3S2\ML_Projects\Dengue-Risk-MLOps-master\Dengue-Risk-MLOps\.venv" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.11 (Dengue-Risk-MLOps)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
