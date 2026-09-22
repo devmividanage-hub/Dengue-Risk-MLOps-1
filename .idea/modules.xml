@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Dengue-Risk-MLOps.iml" filepath="$PROJECT_DIR$/.idea/Dengue-Risk-MLOps.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/dengue-risk-mlops.iml" filepath="$PROJECT_DIR$/.idea/dengue-risk-mlops.iml" />
     </modules>
   </component>
 </project>
