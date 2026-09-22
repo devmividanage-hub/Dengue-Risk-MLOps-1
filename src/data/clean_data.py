@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.data.validate_data import require_columns, validate_data
+from .validate_data import require_columns, validate_data
 from src.utils.helpers import DataValidationError
 from src.utils.logger import get_logger
 
