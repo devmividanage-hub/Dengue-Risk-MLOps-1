@@ -1,0 +1,35 @@
+paths:
+  dengue: data/raw/dengue
+  weather: data/raw/weather
+  weather_locations: data/raw/weather/locationData.csv
+  interim: data/interim
+  processed: data/processed/weekly.csv
+  quality_report: reports/metrics/data_quality.json
+dates:
+  format: "%m/%d/%Y"
+  dayfirst: false
+weather:
+  location_filename: locationData.csv
+  date_column: date
+  district_column: district
+  location_column: location_id
+  location_name_column: city_name
+  # Keys are normalized source columns; values describe honest weekly statistics.
+  columns:
+    temperature_2m_mean_c: [mean_temperature, mean]
+    temperature_2m_min_c: [min_temperature, min]
+    temperature_2m_max_c: [max_temperature, max]
+    precipitation_sum_mm: [total_rainfall, sum]
+    wind_speed_10m_max_km_h: [mean_daily_max_wind_speed, mean]
+    relative_humidity_2m_mean: [mean_humidity, mean]
+  min_days_per_week: 7
+  min_match_fraction: 0.65
+split:
+  train: 0.70
+  validation: 0.15
+  test: 0.15
+  # Optional ISO date boundaries for forecast weeks; ratios otherwise apply.
+  validation_start: null
+  test_start: null
+training:
+  require_complete_weather: true
