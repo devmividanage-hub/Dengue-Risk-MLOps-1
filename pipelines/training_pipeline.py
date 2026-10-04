@@ -1,19 +1,14 @@
-"""Validation-selected model training, experiment tracking, and one test evaluation."""
+"""Validation-selected local model training and one test evaluation."""
 
 import hashlib
 import importlib.metadata
-import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import joblib
-import mlflow
-import mlflow.sklearn
 import pandas as pd
-from dotenv import load_dotenv
-from mlflow.models import infer_signature
 
 from src.data.split_data import chronological_split
 from src.data.validate_data import validate_data
@@ -24,7 +19,6 @@ from src.models.train import build_model, decode_labels, fit_model
 from src.models.tune import tune_model
 from src.utils.helpers import (
     RISK_CLASSES,
-    ROOT,
     DataValidationError,
     load_config,
     resolve_path,
@@ -57,7 +51,6 @@ def run_training_pipeline(
     model_config: str | Path = "configs/model.yaml",
 ) -> dict[str, Any]:
     """Train three comparable pipelines; select by validation before opening test labels."""
-    load_dotenv(ROOT / ".env")
     data_settings = load_config(data_config)
     settings = load_config(model_config)
     processed = resolve_path(data_settings["paths"]["processed"])
@@ -90,11 +83,6 @@ def run_training_pipeline(
     artifacts_dir = resolve_path(settings["artifacts_dir"])
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     reports_dir = resolve_path(settings["reports_dir"])
-    (ROOT / "mlflow").mkdir(exist_ok=True)
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI") or settings["mlflow"].get("tracking_uri")
-    tracking_uri = tracking_uri or f"sqlite:///{(ROOT / 'mlflow' / 'mlflow.db').as_posix()}"
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment(settings["mlflow"]["experiment"])
     selection = settings["selection_metric"]
     if selection not in {"f1_macro", "weighted_f1", "accuracy", "high_risk_recall"}:
         raise ValueError(f"Unsupported validation selection metric: {selection}")
@@ -102,60 +90,23 @@ def run_training_pipeline(
     best_model = None
     best_name = ""
     best_score = -1.0
-    best_run_id = ""
     for name in ["logistic_regression", "random_forest", "xgboost"]:
         model = build_model(name, columns, settings)
-        with mlflow.start_run(run_name=name) as run:
-            mlflow.log_params(
-                {
-                    "model_name": name,
-                    "random_state": settings["random_state"],
-                    **settings["models"][name],
-                }
-            )
-            mlflow.log_params(
-                {
-                    f"{period}_{key}": value
-                    for period in ["train", "validation"]
-                    for key, value in split_report[period].items()
-                }
-            )
-            if settings["tuning"]["enabled"]:
-                model, tuning_report = tune_model(model, name, splits["train"], columns, settings)
-                mlflow.log_dict(tuning_report, "tuning.json")
-            else:
-                model = fit_model(model, splits["train"][columns], splits["train"].risk_class)
-            validation = splits["validation"]
-            metrics = calculate_metrics(
-                validation.risk_class,
-                decode_labels(model.predict(validation[columns])),
-                model.predict_proba(validation[columns]),
-            )
-            paths = save_evaluation(metrics, reports_dir, f"{name}_validation")
-            mlflow.log_metrics(
-                {
-                    f"validation_{key}": value
-                    for key, value in metrics.items()
-                    if isinstance(value, (int, float))
-                }
-            )
-            for path in paths:
-                mlflow.log_artifact(str(path))
-            mlflow.log_dict(schema, "feature_schema.json")
-            mlflow.log_dict(thresholds, "target_thresholds.json")
-            example = splits["train"][columns].head(3)
-            example = example.astype({column: "float64" for column in schema["numeric"]})
-            mlflow.sklearn.log_model(
-                model,
-                name="model",
-                input_example=example,
-                signature=infer_signature(example, model.predict(example)),
-                serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-            )
-            comparison[name] = {"validation": metrics, "run_id": run.info.run_id}
-            if metrics[selection] > best_score:
-                best_model, best_name, best_score = model, name, metrics[selection]
-                best_run_id = run.info.run_id
+        if settings["tuning"]["enabled"]:
+            model, tuning_report = tune_model(model, name, splits["train"], columns, settings)
+            save_json(reports_dir / "metrics" / f"{name}_tuning.json", tuning_report)
+        else:
+            model = fit_model(model, splits["train"][columns], splits["train"].risk_class)
+        validation = splits["validation"]
+        metrics = calculate_metrics(
+            validation.risk_class,
+            decode_labels(model.predict(validation[columns])),
+            model.predict_proba(validation[columns]),
+        )
+        save_evaluation(metrics, reports_dir, f"{name}_validation")
+        comparison[name] = {"validation": metrics}
+        if metrics[selection] > best_score:
+            best_model, best_name, best_score = model, name, metrics[selection]
     if best_model is None:
         raise RuntimeError("No model was trained")
     # Selection is complete. Only now classify and evaluate the untouched test labels.
@@ -166,18 +117,7 @@ def run_training_pipeline(
         decode_labels(best_model.predict(test[columns])),
         best_model.predict_proba(test[columns]),
     )
-    test_paths = save_evaluation(test_metrics, reports_dir, "best_model_test")
-    with mlflow.start_run(run_id=best_run_id):
-        mlflow.set_tag("selected_best", "true")
-        mlflow.log_metrics(
-            {
-                f"test_{key}": value
-                for key, value in test_metrics.items()
-                if isinstance(value, (int, float))
-            }
-        )
-        for path in test_paths:
-            mlflow.log_artifact(str(path), artifact_path="test")
+    save_evaluation(test_metrics, reports_dir, "best_model_test")
     version = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     metadata = {
         "model_version": version,
@@ -191,13 +131,12 @@ def run_training_pipeline(
         "training_rows_excluded_missing_weather": excluded_weather,
         "unlabeled_rows": len(labeled) - len(labeled.dropna(subset=["next_week_cases"])),
         "requires_complete_weather": data_settings["training"]["require_complete_weather"],
-        "selected_mlflow_run_id": best_run_id,
         "processed_data_sha256": hashlib.sha256(processed.read_bytes()).hexdigest(),
         "data_configuration": data_settings,
         "model_configuration": settings,
         "dependency_versions": {
             name: importlib.metadata.version(name)
-            for name in ["numpy", "pandas", "scikit-learn", "xgboost", "mlflow", "joblib"]
+            for name in ["numpy", "pandas", "scikit-learn", "xgboost", "joblib"]
         },
         "disclaimer": "Academic risk classification system; not a medical diagnostic system.",
     }

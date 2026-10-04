@@ -13,13 +13,13 @@ from src.utils.helpers import RISK_CLASSES, ModelNotFoundError, resolve_path
 
 
 class RiskPredictor:
-    """An immutable-per-request service contract around a fitted sklearn pipeline."""
+    """Local predictions using a fitted pipeline and its saved feature contract."""
 
     def __init__(self, model_path: str | Path = "models/best_model.joblib"):
         path = resolve_path(model_path)
         if not path.exists():
             raise ModelNotFoundError("Model artifact not found; run training before prediction")
-        # joblib is trusted local input only, never supplied through the API.
+        # Only load trusted local joblib artifacts.
         bundle = joblib.load(path)
         self.pipeline = bundle["pipeline"]
         self.schema = bundle["schema"]

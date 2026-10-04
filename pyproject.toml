@@ -3,7 +3,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dengue-risk-mlops"
+name = "dengue-risk-ml"
 version = "0.1.0"
 description = "Reproducible next-week Sri Lankan dengue risk classification"
 requires-python = ">=3.11,<3.12"
@@ -13,7 +13,7 @@ dynamic = ["dependencies"]
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
-include = ["src*", "api*", "pipelines*", "monitoring*"]
+include = ["src*", "pipelines*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -27,9 +27,6 @@ exclude = [".venv", "notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
-
-[tool.ruff.lint.isort]
-known-third-party = ["mlflow"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*.py" = ["E402"]

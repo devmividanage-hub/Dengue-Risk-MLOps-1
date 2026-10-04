@@ -5,9 +5,6 @@ target_quantiles:
 selection_metric: f1_macro
 artifacts_dir: models
 reports_dir: reports
-mlflow:
-  experiment: dengue-risk-classification
-  tracking_uri: null
 models:
   logistic_regression:
     max_iter: 1000
